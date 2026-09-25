@@ -1,0 +1,87 @@
+name: Claude Issue Triage
+
+on:
+  issues:
+    types: [opened, edited]
+
+concurrency:
+  group: triage-${{ github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  triage:
+    # Solo correr cuando se abre el issue, o cuando se edita y cambió el título o el cuerpo
+    # (poner/quitar labels dispara el evento "labeled", no "edited", así que no hay bucles).
+    # Se ignoran issues abiertos por bots.
+    if: |
+      github.event.issue.user.type != 'Bot' &&
+      (
+        github.event.action == 'opened' ||
+        (github.event.action == 'edited' && (github.event.changes.body || github.event.changes.title))
+      )
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Run Claude Issue Triage
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          claude_args: >
+            --allowedTools "Read,Glob,Grep,Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh issue comment:*),Bash(gh label list:*),Bash(gh search issues:*)"
+          prompt: |
+            Estás analizando el issue #${{ github.event.issue.number }} del repositorio
+            ${{ github.repository }} (un juego de Tetris en JavaScript: index.html, game.js, style.css).
+
+            Objetivo: clasificar el issue con labels apropiadas y dejar un diagnóstico técnico
+            que sirva de base para implementar la solución después. NO modifiques archivos del
+            repositorio ni cierres el issue.
+
+            Pasos a seguir:
+
+            1. Lee el issue completo con `gh issue view ${{ github.event.issue.number }} --json title,body,comments,labels`.
+            2. Lista las labels disponibles con `gh label list` y usa SOLO labels que ya existan
+               en el repositorio (no crees labels nuevas).
+            3. Explora el código relevante (game.js, index.html, style.css, README.md) con
+               Read/Glob/Grep para entender el área afectada.
+            4. Busca posibles duplicados con `gh search issues --repo ${{ github.repository }}`.
+            5. Aplica las labels que correspondan con `gh issue edit ${{ github.event.issue.number }} --add-label "..."`
+               (por ejemplo: bug, enhancement, documentation, accessibility, question, duplicate,
+               good first issue, help wanted). Si es una edición y alguna label ya no corresponde,
+               quítala con `--remove-label`.
+            6. Publica o actualiza UN ÚNICO comentario de diagnóstico. Antes de crear uno nuevo,
+               revisa si ya existe un comentario tuyo anterior que empiece con el marcador
+               `<!-- claude-triage -->` (usando el resultado de `gh issue view --json comments`).
+               Si existe, actualízalo con `gh issue comment ${{ github.event.issue.number }} --edit-last`;
+               si no existe, créalo con `gh issue comment ${{ github.event.issue.number }} --body-file`.
+
+            El comentario debe estar en español, empezar con `<!-- claude-triage -->` en la primera
+            línea, y tener esta estructura:
+
+            ## 🔍 Diagnóstico automático (Claude)
+
+            **Resumen**: (1-2 frases resumiendo el problema o la solicitud)
+
+            **Clasificación**: (labels aplicadas y por qué)
+
+            **Diagnóstico técnico**: causa probable, archivos y funciones involucrados citados
+            como `archivo:línea` cuando sea posible.
+
+            **Propuesta de solución**: pasos concretos a seguir para implementarla (sin escribir
+            el código todavía).
+
+            **Complejidad estimada**: baja / media / alta, con una breve justificación.
+
+            **Riesgos o preguntas abiertas**: (si las hay).
+
+            ---
+            _Para implementar esta solución, comenta `@claude implementa la solución propuesta`._
