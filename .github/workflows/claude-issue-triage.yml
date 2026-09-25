@@ -64,8 +64,11 @@ jobs:
                Si existe, actualízalo con `gh issue comment ${{ github.event.issue.number }} --edit-last`;
                si no existe, créalo con `gh issue comment ${{ github.event.issue.number }} --body-file`.
 
-            El comentario debe estar en español, empezar con `<!-- claude-triage -->` en la primera
-            línea, y tener esta estructura:
+            El comentario debe estar en español, en formato Markdown válido que GitHub pueda
+            renderizar correctamente (usa encabezados `##`, listas con `-`, negritas `**texto**`
+            y referencias a código entre backticks como `archivo:línea`; deja SIEMPRE una línea
+            en blanco entre secciones y antes/después de cualquier lista o encabezado). Debe
+            empezar con `<!-- claude-triage -->` en la primera línea, y tener esta estructura:
 
             ## 🔍 Diagnóstico automático (Claude)
 
@@ -76,12 +79,12 @@ jobs:
             **Diagnóstico técnico**: causa probable, archivos y funciones involucrados citados
             como `archivo:línea` cuando sea posible.
 
-            **Propuesta de solución**: pasos concretos a seguir para implementarla (sin escribir
-            el código todavía).
+            **Propuesta de solución**: (lista con `-` de pasos concretos a seguir para
+            implementarla, sin escribir el código todavía).
 
             **Complejidad estimada**: baja / media / alta, con una breve justificación.
 
-            **Riesgos o preguntas abiertas**: (si las hay).
+            **Riesgos o preguntas abiertas**: (lista con `-` si las hay, o "Ninguno" si no aplica).
 
             ---
             _Para implementar esta solución, comenta `@claude implementa la solución propuesta`._
